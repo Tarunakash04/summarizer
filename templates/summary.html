@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Analysis Summary</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #fafafa;
+      padding: 40px;
+      color: #222;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 30px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    .btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    form {
+      display: inline-block;
+    }
+
+    input[type="text"] {
+      padding: 5px;
+      width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      background-color: #6c63ff;
+      color: white;
+      padding: 8px 14px;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #574b90;
+    }
+
+    .answer-box {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+
+    .answer-box table {
+      margin-top: 10px;
+    }
+
+    .answer-box strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Summary Based on "{{ target }}"</h2>
+
+  {% for feature, table in summary_table.items() %}
+  <h3>Grouped by "{{ target }}" vs "{{ feature }}"</h3>
+  <table>
+    <tr>
+      <th>{{ target }}</th>
+      {% set all_keys = [] %}
+      {% for counts in table.values() %}
+        {% for k in counts.keys() %}
+          {% if k not in all_keys %}
+            {% set _ = all_keys.append(k) %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+      {% set all_keys = all_keys | sort %}
+
+      {% for k in all_keys %}
+        <th>{{ k }}</th>
+      {% endfor %}
+    </tr>
+    {% for target_value, counts in table.items() %}
+      <tr>
+        <td>{{ target_value }}</td>
+        {% for k in all_keys %}
+          <td>{{ counts[k] if k in counts else 0 }}</td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </table>
+  {% endfor %}
+
+  <div class="btns">
+    <form action="/reset" method="GET">
+      <button type="submit">Try Again</button>
+    </form>
+
+    <form action="/followup" method="POST">
+      <input type="hidden" name="summary" value="{{ summary_table | tojson | forceescape }}">
+      <input type="text" name="question" placeholder="Ask a follow-up question..." required>
+      <button type="submit">Ask</button>
+    </form>
+  </div>
+
+  {% if followup_question and followup_answer %}
+    <div class="answer-box">
+      <strong>Q:</strong> {{ followup_question }}
+      <strong>A:</strong>
+      <div>{{ followup_answer | safe }}</div>
+    </div>
+  {% endif %}
+</body>
+</html>
