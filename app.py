@@ -18,7 +18,6 @@ semantic_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
 qa_model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
 
-
 def extract_table_from_pdf(filepath):
     dfs = []
     with pdfplumber.open(filepath) as pdf:
@@ -40,7 +39,6 @@ def parse_files(filepaths):
             dataframes.extend(pdf_dfs)
     return dataframes
 
-
 def detect_columns(df_list):
     sets = [set(df.columns) for df in df_list if not df.empty]
     if not sets:
@@ -49,7 +47,6 @@ def detect_columns(df_list):
     all_cols = set.union(*sets)
     uncommon = all_cols - common
     return sorted(common), sorted(uncommon)
-
 
 def generate_summary_prompt(df, target, features):
     features = list(features) if isinstance(features, (list, tuple)) else [features]
@@ -78,7 +75,6 @@ Instructions:
 - Include bullet points or concise insights.
 - Ensure the output is easy to understand by non-technical stakeholders.
 """
-
     return prompt
 
 def generate_summary(prompt):
@@ -109,7 +105,6 @@ def index():
                                common_cols=common_cols,
                                uncommon_cols=uncommon_cols)
     return render_template('index.html')
-
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -182,15 +177,12 @@ def analyze():
                            model_summary_text=model_summary_text,
                            supporting_table_html=supporting_table_html)
 
-
-
 @app.route('/reset')
 def reset():
     session.clear()
     for f in os.listdir(app.config['UPLOAD_FOLDER']):
         os.remove(os.path.join(app.config['UPLOAD_FOLDER'], f))
     return redirect(url_for('index'))
-
 
 if __name__ == '__main__':
     app.run(debug=True)
