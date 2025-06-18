@@ -1,0 +1,6 @@
+streamlit
+pandas
+pdfplumber
+transformers
+sentence-transformers
+torch
