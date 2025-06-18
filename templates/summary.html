@@ -1,134 +1,95 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Analysis Summary</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #fafafa;
-      padding: 40px;
-      color: #222;
-    }
+    <meta charset="UTF-8">
+    <title>Data Summary - {{ target }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            padding: 40px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
 
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-bottom: 30px;
-    }
+        h2, h3 {
+            color: #2c3e50;
+        }
 
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px 12px;
-      text-align: center;
-    }
+        .summary-block {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
 
-    th {
-      background-color: #f2f2f2;
-    }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
 
-    h2 {
-      margin-bottom: 20px;
-    }
+        .summary-table th, .summary-table td {
+            padding: 12px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
 
-    .btns {
-      display: flex;
-      gap: 10px;
-    }
+        .summary-table th {
+            background-color: #f2f2f2;
+        }
 
-    form {
-      display: inline-block;
-    }
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
 
-    input[type="text"] {
-      padding: 5px;
-      width: 300px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
+        .button-bar {
+            margin-top: 30px;
+        }
 
-    button {
-      background-color: #6c63ff;
-      color: white;
-      padding: 8px 14px;
-      font-size: 14px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+        .button-bar a {
+            display: inline-block;
+            text-decoration: none;
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            margin-right: 15px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease-in-out;
+        }
 
-    button:hover {
-      background-color: #574b90;
-    }
-
-    .answer-box {
-      margin-top: 20px;
-      padding: 15px;
-      border: 1px solid #ccc;
-      background: #f9f9f9;
-      border-radius: 6px;
-    }
-
-    .answer-box table {
-      margin-top: 10px;
-    }
-
-    .answer-box strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-  </style>
+        .button-bar a:hover {
+            background-color: #2d83c4;
+        }
+    </style>
 </head>
 <body>
-  <h2>Summary Based on "{{ target }}"</h2>
 
-  {% for feature, table in summary_table.items() %}
-  <h3>Grouped by "{{ target }}" vs "{{ feature }}"</h3>
-  <table>
-    <tr>
-      <th>{{ target }}</th>
-      {% set all_keys = [] %}
-      {% for counts in table.values() %}
-        {% for k in counts.keys() %}
-          {% if k not in all_keys %}
-            {% set _ = all_keys.append(k) %}
-          {% endif %}
-        {% endfor %}
-      {% endfor %}
-      {% set all_keys = all_keys | sort %}
+    <h2>Summary Report: Primary Column - <strong>{{ target }}</strong></h2>
 
-      {% for k in all_keys %}
-        <th>{{ k }}</th>
-      {% endfor %}
-    </tr>
-    {% for target_value, counts in table.items() %}
-      <tr>
-        <td>{{ target_value }}</td>
-        {% for k in all_keys %}
-          <td>{{ counts[k] if k in counts else 0 }}</td>
-        {% endfor %}
-      </tr>
-    {% endfor %}
-  </table>
-  {% endfor %}
+    {% if model_summary_text %}
+        <div class="summary-block">
+            <h3>🧠 AI-Generated Summary</h3>
+            <pre>{{ model_summary_text }}</pre>
+        </div>
+    {% endif %}
 
-  <div class="btns">
-    <form action="/reset" method="GET">
-      <button type="submit">Try Again</button>
-    </form>
+    {% if supporting_table_html %}
+        <div class="summary-block">
+            <h3>📊 Supporting Data Table</h3>
+            {{ supporting_table_html | safe }}
+        </div>
+    {% endif %}
 
-    <form action="/followup" method="POST">
-      <input type="hidden" name="summary" value="{{ summary_table | tojson | forceescape }}">
-      <input type="text" name="question" placeholder="Ask a follow-up question..." required>
-      <button type="submit">Ask</button>
-    </form>
-  </div>
+    {% if not model_summary_text and not supporting_table_html %}
+        <p>No data was found to summarize. Please try uploading different files or column selections.</p>
+    {% endif %}
 
-  {% if followup_question and followup_answer %}
-    <div class="answer-box">
-      <strong>Q:</strong> {{ followup_question }}
-      <strong>A:</strong>
-      <div>{{ followup_answer | safe }}</div>
+    <div class="button-bar">
+        <a href="{{ url_for('index') }}">⬆️ Upload New Files</a>
+        <a href="{{ url_for('reset') }}">🔄 Reset Session</a>
     </div>
-  {% endif %}
 </body>
 </html>
