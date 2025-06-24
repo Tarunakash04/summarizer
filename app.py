@@ -7,12 +7,17 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from werkzeug.utils import secure_filename
 from sentence_transformers import SentenceTransformer
 from io import BytesIO
+from flask_session import Session  # 🧠 PATCHED
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = 'secret_key'
+
+# 🧠 PATCHED: Server-side session config
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 # === Load Models ===
 try:
@@ -25,7 +30,7 @@ except Exception as e:
     print("❌ Model loading failed:", e)
     sys.exit(1)
 
-HEADER_KEYWORDS = ['log source', 'event name', 'event count', 'start time', 'hostname']
+HEADER_KEYWORDS = ['log source', 'event name', 'event count', 'start time', 'hostname', 'Name']
 
 def find_real_header(df_or_rows):
     for i, row in enumerate(df_or_rows[:10]):
@@ -197,7 +202,11 @@ def analyze():
                                comparison_table_html=None)
 
     merged_df = pd.concat(selected_data, ignore_index=True)
-    session['data'] = merged_df.to_json()
+
+    # 🧠 PATCHED: Save data to disk, store path in session
+    merged_path = os.path.join(app.config['UPLOAD_FOLDER'], 'merged_data.json')
+    merged_df.to_json(merged_path)
+    session['merged_path'] = merged_path
     session['target'] = target
     session['features'] = selected_secondary_columns
 
@@ -218,7 +227,6 @@ def analyze():
     except Exception as e:
         supporting_table_html = None
 
-    # Comparison table if multiple files
     if len(paths) > 1:
         all_data = parse_files(paths)
         comparison_df = generate_comparison_table(all_data, [os.path.basename(p) for p in paths])
@@ -244,10 +252,8 @@ def download():
     if not all_data:
         return redirect(url_for('index'))
 
-    # Summary table already shown on UI – no need to include in Excel
     comparison_df = generate_comparison_table(all_data, [os.path.basename(p) for p in paths])
 
-    # Save to Excel in-memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         if comparison_df is not None:
