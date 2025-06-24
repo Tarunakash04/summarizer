@@ -7,15 +7,13 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from werkzeug.utils import secure_filename
 from sentence_transformers import SentenceTransformer
 from io import BytesIO
-from flask_session import Session  # 🧠 PATCHED
+from flask_session import Session
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = 'secret_key'
-
-# 🧠 PATCHED: Server-side session config
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
@@ -75,14 +73,12 @@ def parse_files(filepaths):
             print(f"❌ Parsing failed for {path}: {e}")
     return dataframes
 
-def detect_columns(df_list):
-    sets = [set(df.columns) for df in df_list if not df.empty]
-    if not sets:
-        return [], []
-    common = set.intersection(*sets)
-    all_cols = set.union(*sets)
-    uncommon = all_cols - common
-    return sorted(common), sorted(uncommon)
+def collect_all_columns(df_list):
+    all_cols = set()
+    for df in df_list:
+        if not df.empty:
+            all_cols.update(df.columns)
+    return sorted(list(all_cols))
 
 def generate_summary_prompt(df, target, features):
     features = list(features) if isinstance(features, (list, tuple)) else [features]
@@ -152,12 +148,12 @@ def index():
             saved_paths.append(save_path)
 
         dataframes = parse_files(saved_paths)
-        common_cols, uncommon_cols = detect_columns(dataframes)
+        all_columns = collect_all_columns(dataframes)
         session['paths'] = saved_paths
 
         return render_template('drag_drop.html',
-                               common_cols=common_cols,
-                               uncommon_cols=uncommon_cols)
+                               common_cols=all_columns,
+                               uncommon_cols=[])
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
@@ -203,7 +199,6 @@ def analyze():
 
     merged_df = pd.concat(selected_data, ignore_index=True)
 
-    # 🧠 PATCHED: Save data to disk, store path in session
     merged_path = os.path.join(app.config['UPLOAD_FOLDER'], 'merged_data.json')
     merged_df.to_json(merged_path)
     session['merged_path'] = merged_path
