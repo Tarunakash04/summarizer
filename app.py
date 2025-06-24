@@ -235,61 +235,34 @@ def analyze():
 
 @app.route('/download')
 def download():
-    # Download Excel with AI summary + supporting table + comparison (if available)
-    import xlsxwriter
-
-    json_data = session.get('data', None)
-    target = session.get('target', None)
-    features = session.get('features', [])
-
-    if json_data is None or target is None:
+    paths = session.get('paths', [])
+    if not paths:
         return redirect(url_for('index'))
 
-    df = pd.read_json(json_data)
+    dataframes = parse_files(paths)
+    all_data = [df for df in dataframes if not df.empty]
+    if not all_data:
+        return redirect(url_for('index'))
 
-    # Regenerate summary and tables (for safety)
-    valid_features = [f for f in features if f in df.columns]
-    prompt = generate_summary_prompt(df, target, valid_features)
-    summary_text = generate_summary(prompt)
-
-    df[[target] + valid_features] = df[[target] + valid_features].astype(str)
-    supporting_table = (
-        df[[target] + valid_features]
-        .dropna()
-        .groupby([target] + valid_features)
-        .size()
-        .reset_index(name='Count')
-    )
-
-    # Multi-file comparison
-    paths = session.get('paths', [])
+    # Summary table already shown on UI – no need to include in Excel
     comparison_df = generate_comparison_table(all_data, [os.path.basename(p) for p in paths])
-    if len(paths) > 1:
-        all_data = parse_files(paths)
-        comparison_df = generate_comparison_table(all_data)
 
+    # Save to Excel in-memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Sheet 1: AI Summary text as a single cell
-        summary_df = pd.DataFrame({'AI Summary': [summary_text]})
-        summary_df.to_excel(writer, sheet_name='AI_Summary', index=False)
-
-        # Sheet 2: Supporting grouped table
-        supporting_table.to_excel(writer, sheet_name='Supporting_Table', index=False)
-
-        # Sheet 3: Comparison table if available
         if comparison_df is not None:
-            comparison_df.to_excel(writer, sheet_name='Comparison_Table', index=False)
-
-        writer.save()
-
+            comparison_df.to_excel(writer, sheet_name="Comparison", index=False)
+        if len(all_data) == 1:
+            all_data[0].to_excel(writer, sheet_name="Raw Data", index=False)
+        elif len(all_data) > 1:
+            for idx, df in enumerate(all_data):
+                df.to_excel(writer, sheet_name=f"File{idx+1}", index=False)
     output.seek(0)
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name='summary_export.xlsx',
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+
+    return send_file(output,
+                     download_name="summary_report.xlsx",
+                     as_attachment=True,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 @app.route('/reset')
 def reset():
