@@ -247,19 +247,42 @@ def download():
     if not all_data:
         return redirect(url_for('index'))
 
+    # Get raw comparison table
     comparison_df = generate_comparison_table(all_data, [os.path.basename(p) for p in paths])
 
+    # Get supporting (grouped summary) table
+    grouped_df = None
+    target = session.get('target')
+    features = session.get('features')
+    if target and features:
+        try:
+            merged_path = session.get('merged_path')
+            merged_df = pd.read_json(merged_path)
+            merged_df[[target] + features] = merged_df[[target] + features].astype(str)
+            grouped_df = (
+                merged_df[[target] + features]
+                .dropna()
+                .groupby([target] + features)
+                .size()
+                .reset_index(name='Count')
+            )
+        except Exception as e:
+            print("❌ Grouped summary failed:", e)
+
+    # Write to Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        if grouped_df is not None:
+            grouped_df.to_excel(writer, sheet_name="Grouped Summary", index=False)
         if comparison_df is not None:
             comparison_df.to_excel(writer, sheet_name="Comparison", index=False)
-        if len(all_data) == 1:
-            all_data[0].to_excel(writer, sheet_name="Raw Data", index=False)
-        elif len(all_data) > 1:
-            for idx, df in enumerate(all_data):
-                df.to_excel(writer, sheet_name=f"File{idx+1}", index=False)
-    output.seek(0)
 
+        for path, df in zip(paths, all_data):
+            name = os.path.splitext(os.path.basename(path))[0]
+            safe_name = name[:31].replace(" ", "_")
+            df.to_excel(writer, sheet_name=safe_name, index=False)
+
+    output.seek(0)
     return send_file(output,
                      download_name="summary_report.xlsx",
                      as_attachment=True,
